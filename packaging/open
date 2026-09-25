@@ -1,0 +1,28 @@
+#!/bin/sh
+# What the bar button runs.
+#
+# `omarchy plugin add` and `omarchy plugin update` only clone and pull; they
+# never run plugin code or sudo. So the first press after either one builds
+# omakeeb in a terminal the user can see, where sudo can ask for the hidraw
+# grant. Every other press opens the window, or focuses the one already open.
+set -eu
+
+here=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+binary=${PREFIX:-$HOME/.local}/bin/omakeeb
+
+if "$here/setup" --check; then
+    # omarchy-launch-or-focus matches a word in the class or the title, and a
+    # terminal sitting in a directory named omakeeb has that word in its
+    # title. Match the class exactly instead.
+    window=$(hyprctl clients -j | jq -r '.[] | select(.class == "omakeeb") | .address' | head -n1)
+    if [ -n "$window" ]; then
+        # The same two spellings omarchy-launch-or-focus tries, newest first.
+        hyprctl dispatch "hl.dsp.focus({ window = \"address:$window\" })" >/dev/null 2>&1 ||
+            hyprctl dispatch focuswindow "address:$window" >/dev/null
+        exit
+    fi
+    exec setsid uwsm-app -- "$binary"
+fi
+
+exec omarchy-launch-floating-terminal-with-presentation \
+    "'$here/setup' && setsid uwsm-app -- '$binary' >/dev/null 2>&1"

@@ -1,0 +1,107 @@
+#!/bin/sh
+# Remove omakeeb: the app, its launcher entry and icon, the keyboard-access
+# rule, and the Omarchy plugin if it is installed. Saved layouts and keymap
+# backups stay unless --purge is given; they are the user's, not ours.
+#
+# Both install routes copy this script to ~/.local/lib/omakeeb, so one
+# command works however omakeeb was installed. The keyboard is untouched:
+# its keymap lives in its own EEPROM.
+set -eu
+
+plugin_id=zythosec.omakeeb
+assume_yes=0
+purge=0
+for arg in "$@"; do
+    case "$arg" in
+    --yes | -y) assume_yes=1 ;;
+    --purge) purge=1 ;;
+    -h | --help)
+        echo "Usage: uninstall [--yes] [--purge]"
+        echo
+        echo "  --yes     do not ask before removing"
+        echo "  --purge   also delete saved layouts and keymap backups (~/.config/omakeeb)"
+        exit 0
+        ;;
+    *)
+        echo "omakeeb uninstall: unknown option $arg" >&2
+        exit 2
+        ;;
+    esac
+done
+
+prefix=${PREFIX:-$HOME/.local}
+config=${XDG_CONFIG_HOME:-$HOME/.config}/omakeeb
+cache=${XDG_CACHE_HOME:-$HOME/.cache}/omakeeb
+state=${XDG_STATE_HOME:-$HOME/.local/state}/omakeeb
+plugin_dir=$HOME/.config/omarchy/plugins/$plugin_id
+udev_files="/usr/lib/udev/omakeeb-hid /etc/udev/rules.d/50-omakeeb.rules"
+needs_root=0
+for file in $udev_files; do
+    if [ -e "$file" ]; then
+        needs_root=1
+    fi
+done
+
+echo "This removes:"
+echo "  the omakeeb app, launcher entry and icon under $prefix"
+echo "  build files and logs in $cache and $state"
+if [ "$needs_root" -eq 1 ]; then
+    echo "  the keyboard-access rule (asks for your password)"
+fi
+if [ -e "$plugin_dir" ] || [ -L "$plugin_dir" ]; then
+    echo "  the Omarchy plugin and its bar icon"
+fi
+if [ "$purge" -eq 1 ]; then
+    echo "  your saved layouts and keymap backups in $config"
+else
+    echo "It keeps your saved layouts and keymap backups in $config (--purge removes them)."
+fi
+echo "Your keyboard keeps its keymap either way."
+
+if [ "$assume_yes" -eq 0 ]; then
+    if [ ! -t 0 ]; then
+        echo "omakeeb uninstall: not a terminal; pass --yes to continue" >&2
+        exit 1
+    fi
+    printf "Continue? [y/N] "
+    read -r answer
+    case "$answer" in
+    y | Y | yes | YES) ;;
+    *)
+        echo "Nothing removed."
+        exit 0
+        ;;
+    esac
+fi
+
+rm -f "$prefix/bin/omakeeb" \
+    "$prefix/share/applications/omakeeb.desktop" \
+    "$prefix/share/icons/hicolor/scalable/apps/omakeeb.svg"
+rm -rf "$cache" "$state"
+if [ "$purge" -eq 1 ]; then
+    rm -rf "$config"
+fi
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$prefix/share/applications" 2>/dev/null || true
+fi
+
+if [ "$needs_root" -eq 1 ]; then
+    # One sudo for the whole privileged half, so the password is asked once.
+    # shellcheck disable=SC2086
+    sudo sh -c "rm -f $udev_files && udevadm control --reload-rules \
+        && udevadm trigger --subsystem-match=hidraw"
+fi
+
+# Last, because this script may be running from inside the plugin folder or
+# from the lib folder: sh keeps reading a deleted file through its open
+# descriptor, but nothing after this should need either folder.
+rm -rf "$prefix/lib/omakeeb"
+if [ -e "$plugin_dir" ] || [ -L "$plugin_dir" ]; then
+    if command -v omarchy >/dev/null 2>&1; then
+        omarchy plugin remove "$plugin_id" --yes
+    else
+        rm -rf "$plugin_dir"
+    fi
+fi
+
+echo "omakeeb is uninstalled."

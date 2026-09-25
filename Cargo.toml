@@ -1,0 +1,89 @@
+[workspace]
+resolver = "3"
+members = ["crates/omakeeb-core", "crates/omakeeb-app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+license = "MIT"
+repository = "https://github.com/zythosec/omakeeb"
+
+[workspace.dependencies]
+omakeeb-core = { path = "crates/omakeeb-core" }
+anyhow = "1"
+serde_json = "1"
+
+# The checks that catch real defects are errors. Deliberate omissions are
+# written down here, the same policy disktree uses, so a silence is a choice.
+[workspace.lints.rust]
+unsafe_code = "deny"
+unused_lifetimes = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+missing_debug_implementations = "warn"
+rust_2018_idioms = { level = "deny", priority = -1 }
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+
+# module_name_repetitions  - `layout::Layout` reads better than a second name.
+# missing_errors_doc        - the error type is one screen away from the caller.
+# missing_panics_doc
+# must_use_candidate        - noise on small private helpers.
+# similar_names             - (x, y), (w, h), (row, col) are the domain.
+# too_many_lines            - render and the keycode table are linear on purpose.
+# option_if_let_else        - `if let` keeps ownership visible.
+# cast_possible_truncation  - matrix indexes are bounded by the definition.
+# cast_sign_loss
+# cast_precision_loss       - key units become pixels.
+# cast_lossless
+# struct_excessive_bools    - a key really does have several independent flags.
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+similar_names = "allow"
+too_many_lines = "allow"
+option_if_let_else = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_precision_loss = "allow"
+cast_lossless = "allow"
+struct_excessive_bools = "allow"
+items_after_statements = "allow"
+# A helper being const is a bonus, not a defect, and several of these build
+# strings or vectors the moment a caller uses them.
+missing_const_for_fn = "allow"
+float_cmp = "allow"
+# Index arithmetic and the GPUI builder types. The ranges are the size of a
+# keymap or a zoom step, and the builders take the context they are handed.
+cast_possible_wrap = "allow"
+too_many_arguments = "allow"
+needless_pass_by_ref_mut = "allow"
+needless_pass_by_value = "allow"
+redundant_clone = "allow"
+map_unwrap_or = "allow"
+collapsible_if = "allow"
+match_same_arms = "allow"
+unused_self = "allow"
+suboptimal_flops = "allow"
+
+[profile.dev]
+debug = "limited"
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+overflow-checks = true
+
+# gpui-pre-macros leaves a helper ungated in release builds while its module is
+# gated on debug_assertions; enable it for the host proc-macro only.
+[profile.release.package.gpui-pre-macros]
+debug-assertions = true

@@ -1,0 +1,21 @@
+[package]
+name = "omakeeb-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Native Omarchy configurator for VIA keyboards"
+publish = false
+
+[[bin]]
+name = "omakeeb"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+gpui-kit = { version = "=0.6.6", default-features = false, features = ["assets"] }
+gpui-omarchy = "0.1.3"
+omakeeb-core = { workspace = true }
+rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "tokio"] }

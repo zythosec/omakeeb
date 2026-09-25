@@ -1,0 +1,115 @@
+#!/bin/sh
+# Install omakeeb for the current user, and grant hidraw access.
+#
+# Run from a terminal: `make install`, or the bar button's first press. The
+# privileged half asks through sudo there. `--check` installs nothing and
+# exits 0 only when the binary and the udev helper are in place and newer
+# than the sources, which is also when a plain run does nothing.
+#
+# `--root-only` is the udev half alone. omakeeb runs it from its window when
+# a keyboard refuses to open; with no terminal to type a password into, it
+# asks through pkexec instead.
+set -eu
+
+here=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+root=$(CDPATH= cd -- "$here/.." && pwd)
+mode=${1:-}
+
+install_udev() {
+    install -d -m 0755 /usr/lib/udev
+    install -m 0755 "$here/omakeeb-hid" /usr/lib/udev/omakeeb-hid
+    install -m 0644 "$here/50-omakeeb.rules" /etc/udev/rules.d/50-omakeeb.rules
+    udevadm control --reload-rules
+    udevadm trigger --subsystem-match=hidraw
+}
+
+if [ "$(id -u)" -eq 0 ]; then
+    install_udev
+    exit 0
+fi
+
+ask_root() {
+    if [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ] && [ ! -t 0 ]; then
+        exec pkexec "$0" --root-only
+    fi
+    exec sudo "$0" --root-only
+}
+
+if [ "$mode" = "--root-only" ]; then
+    ask_root
+fi
+
+prefix=${PREFIX:-$HOME/.local}
+binary=$prefix/bin/omakeeb
+udev_ready=0
+if [ -x /usr/lib/udev/omakeeb-hid ] && [ -f /etc/udev/rules.d/50-omakeeb.rules ]; then
+    udev_ready=1
+fi
+current=0
+if [ -x "$binary" ] && [ "$udev_ready" -eq 1 ]; then
+    newer=$(find "$root/crates" "$root/Cargo.toml" "$root/Cargo.lock" "$root/packaging" \
+        "$root/assets" -newer "$binary" -print -quit 2>/dev/null || true)
+    if [ -z "$newer" ]; then
+        current=1
+    fi
+fi
+if [ "$mode" = "--check" ]; then
+    [ "$current" -eq 1 ]
+    exit
+fi
+if [ "$current" -eq 1 ]; then
+    exit 0
+fi
+
+if [ -f "$HOME/.cargo/env" ]; then
+    # shellcheck disable=SC1091
+    . "$HOME/.cargo/env"
+fi
+if ! command -v cargo >/dev/null 2>&1; then
+    echo "omakeeb: cargo is required to build omakeeb (pacman -S rust, or rustup)" >&2
+    exit 1
+fi
+
+# Build outside the source tree. A plugin checkout lives under
+# ~/.config/omarchy/plugins, which the shell watches recursively and reloads
+# on every write: a target/ there turns one build into thousands of reloads.
+target_dir=${CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/omakeeb/target}
+
+# A terminal shows the build; anything else keeps it in a log.
+if [ -t 1 ]; then
+    cargo build --release --manifest-path "$root/Cargo.toml" --target-dir "$target_dir"
+else
+    log_dir=${XDG_STATE_HOME:-$HOME/.local/state}/omakeeb
+    mkdir -p "$log_dir"
+    cargo build --release --manifest-path "$root/Cargo.toml" --target-dir "$target_dir" \
+        >>"$log_dir/setup.log" 2>&1
+fi
+
+bindir=$prefix/bin
+appdir=$prefix/share/applications
+icondir=$prefix/share/icons/hicolor/scalable/apps
+libdir=$prefix/lib/omakeeb
+install -d "$bindir" "$appdir" "$icondir" "$libdir"
+install -m755 "$target_dir/release/omakeeb" "$bindir/omakeeb"
+install -m644 "$root/assets/omakeeb.svg" "$icondir/omakeeb.svg"
+install -m755 "$here/setup" "$here/uninstall" "$here/omakeeb-hid" "$libdir/"
+install -m644 "$here/50-omakeeb.rules" "$libdir/"
+version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$root/Cargo.toml" | head -1)
+# Installed by the plugin, the launcher entry goes through the same door as
+# the bar button, so a start from the app launcher after `omarchy plugin
+# update` rebuilds too instead of opening the stale binary. `make install`
+# has no checkout it can count on staying put, so it runs the binary.
+exec_line=$bindir/omakeeb
+case "$root" in
+"$HOME/.config/omarchy/plugins/"*) exec_line="sh $here/open" ;;
+esac
+sed -e "s|@EXEC@|$exec_line|" -e "s|@VERSION@|$version|" \
+    "$root/packaging/omakeeb.desktop.in" > "$appdir/omakeeb.desktop"
+chmod 644 "$appdir/omakeeb.desktop"
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$appdir" 2>/dev/null || true
+fi
+
+if [ "$udev_ready" -eq 0 ]; then
+    ask_root
+fi

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "zythosec.omakeeb",
+  "name": "omakeeb",
+  "version": "0.1.0",
+  "author": "zythosec",
+  "description": "Configure VIA keyboards. The bar button builds omakeeb in a terminal the first time it is pressed.",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "omakeeb",
+    "description": "Open the VIA keyboard configurator",
+    "category": "System",
+    "defaultSection": "right",
+    "allowMultiple": false
+  }
+}

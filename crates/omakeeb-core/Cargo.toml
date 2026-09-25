@@ -1,0 +1,18 @@
+[package]
+name = "omakeeb-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "VIA protocol, keyboard definitions, and keycodes for omakeeb"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+hidapi = "2"
+serde_json = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

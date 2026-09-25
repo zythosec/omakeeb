@@ -1,0 +1,5 @@
+# Seat access to a VIA raw HID interface (usage page 0xFF60).
+ACTION=="remove", GOTO="omakeeb_hid_end"
+SUBSYSTEM=="hidraw", KERNEL=="hidraw*", IMPORT{program}="/usr/lib/udev/omakeeb-hid %S%p"
+ENV{ID_OMAKEEB_VIA}=="1", TAG+="uaccess"
+LABEL="omakeeb_hid_end"

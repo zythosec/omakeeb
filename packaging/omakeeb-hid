@@ -1,0 +1,21 @@
+#!/bin/sh
+# Mark a hidraw node when its report descriptor contains usage page 0xFF60.
+# Installed as /usr/lib/udev/omakeeb-hid. The matching rule is
+# packaging/50-omakeeb.rules.
+set -eu
+
+sysfs=${1:-}
+desc=""
+for candidate in "$sysfs/device/report_descriptor" "$sysfs/report_descriptor"; do
+    if [ -r "$candidate" ]; then
+        desc=$candidate
+        break
+    fi
+done
+[ -n "$desc" ] || exit 0
+
+hex=$(od -An -tx1 -v "$desc" | tr -d ' \n')
+case $hex in
+    *0660ff*) printf 'ID_OMAKEEB_VIA=1\n' ;;
+esac
+exit 0

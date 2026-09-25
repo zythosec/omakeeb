@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- omakeeb's mark, drawn in the window beside the title. One colour: the
+       window tints it with the theme's foreground. Three keys over a
+       spacebar, on whole pixels at 24px, square like every Omarchy surface. -->
+  <rect x="2" y="4" width="6" height="6"/>
+  <rect x="9" y="4" width="6" height="6"/>
+  <rect x="16" y="4" width="6" height="6"/>
+  <rect x="2" y="12" width="20" height="6"/>
+</svg>
